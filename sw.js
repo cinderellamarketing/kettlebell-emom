@@ -1,5 +1,11 @@
-/* Kettlebell EMOM — offline cache */
-const CACHE = "emom-v1";
+/* Kettlebell EMOM — offline cache
+   Strategy:
+     - navigations + index.html : network-first, cache as fallback
+       (so edits to the app reach installed copies without bumping CACHE)
+     - everything else           : cache-first
+       (icons and fonts are immutable; no reason to hit the network) */
+const CACHE = "emom-v2";
+const SHELL = "./index.html";
 const ASSETS = [
   "./",
   "./index.html",
@@ -22,13 +28,35 @@ self.addEventListener("activate", e => {
   );
 });
 
+function isShell(req){
+  if (req.mode === "navigate") return true;
+  const u = new URL(req.url);
+  return u.origin === location.origin &&
+         (u.pathname.endsWith("/") || u.pathname.endsWith("/index.html"));
+}
+
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+
+  // ---- the app itself: network first, fall back to cache when offline ----
+  if (isShell(e.request)) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(SHELL, copy));
+          return res;
+        })
+        .catch(() => caches.match(SHELL).then(hit => hit || caches.match("./")))
+    );
+    return;
+  }
+
+  // ---- icons, manifest, fonts: cache first ----
   e.respondWith(
     caches.match(e.request).then(hit => {
       if (hit) return hit;
       return fetch(e.request).then(res => {
-        // cache same-origin assets plus the Google Fonts CSS and font files
         const host = new URL(e.request.url).hostname;
         const cacheable = new URL(e.request.url).origin === location.origin
           || host === "fonts.googleapis.com" || host === "fonts.gstatic.com";
@@ -37,7 +65,7 @@ self.addEventListener("fetch", e => {
           caches.open(CACHE).then(c => c.put(e.request, copy));
         }
         return res;
-      }).catch(() => caches.match("./index.html"));
+      }).catch(() => caches.match(SHELL));
     })
   );
 });
