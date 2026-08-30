@@ -1,0 +1,16 @@
+# Dependencies (none expected — this is a no-build static site)
+node_modules/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
+
+# Environment
+.env
+.env.*
+
+# Local source/archive copies — the deployed app lives at the repo root
+files/

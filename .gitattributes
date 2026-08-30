@@ -1,0 +1,2 @@
+# Preserve files byte-for-byte — no line-ending conversion.
+* -text
