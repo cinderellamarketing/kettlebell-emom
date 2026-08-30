@@ -9,7 +9,6 @@ const SHELL = "./index.html";
 const ASSETS = [
   "./",
   "./index.html",
-  "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
   "./icon-maskable-512.png",
@@ -35,8 +34,18 @@ function isShell(req){
          (u.pathname.endsWith("/") || u.pathname.endsWith("/index.html"));
 }
 
+function isManifest(req){
+  const u = new URL(req.url);
+  return u.origin === location.origin && u.pathname.endsWith("/manifest.webmanifest");
+}
+
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+
+  // ---- manifest: not intercepted, so its no-cache header governs ----
+  // Leaving respondWith uncalled hands the request back to the browser,
+  // so manifest edits are picked up without bumping CACHE.
+  if (isManifest(e.request)) return;
 
   // ---- the app itself: network first, fall back to cache when offline ----
   if (isShell(e.request)) {
@@ -57,7 +66,7 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // ---- icons, manifest, fonts: cache first ----
+  // ---- icons and fonts: cache first ----
   e.respondWith(
     caches.match(e.request).then(hit => {
       if (hit) return hit;
