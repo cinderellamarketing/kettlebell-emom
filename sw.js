@@ -43,8 +43,13 @@ self.addEventListener("fetch", e => {
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(SHELL, copy));
+          // Only ever cache a real, same-origin, non-redirected HTML response,
+          // so an error page or a redirect can never replace the offline shell.
+          const ct = res.headers.get("content-type") || "";
+          if (res.ok && res.type === "basic" && !res.redirected && ct.includes("text/html")) {
+            const copy = res.clone();
+            caches.open(CACHE).then(c => c.put(SHELL, copy));
+          }
           return res;
         })
         .catch(() => caches.match(SHELL).then(hit => hit || caches.match("./")))
